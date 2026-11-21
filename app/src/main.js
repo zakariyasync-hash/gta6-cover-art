@@ -1,9 +1,10 @@
-// Neon Coast Cover Studio — wires the editor page: pick a layout and a grade, load photos
-// into panels (click a panel, then choose a file, or fill every panel with one photo),
-// drag a panel to reposition its photo, type the title and subtitle, and export the
-// cover as a PNG in 1080 x 1080, 1080 x 1350 or 1920 x 1080. A `?shot=` query sets up
-// a fixed scene for a screenshot instead (./shots.js).
-import { drawCover, renderExport, LAYOUTS, GRADES, SIZES } from './cover.js';
+// Neon Coast Cover Studio — editor wiring, written fresh in this session.
+// Pick a layout and a grade, load photos into panels (click a panel, then
+// choose a file, or fill every panel with one photo), drag a panel to
+// reposition its photo, type the title and subtitle, and export the cover
+// as a PNG in 1080 x 1080, 1080 x 1350 or 1920 x 1080. A `?shot=` query
+// sets up a fixed scene for a screenshot instead (./shots.js).
+import { renderPoster, exportPoster, PANEL_LAYOUTS, COLOUR_GRADES, POSTER_SIZES } from './cover.js';
 import { runShot } from './shots.js';
 
 const canvas = document.getElementById('cover');
@@ -31,22 +32,22 @@ let selectedPanel = 0;
 let lastRects = [];
 let dragging = null;
 
-function redraw() {
-  lastRects = drawCover(canvas, state);
+function repaint() {
+  lastRects = renderPoster(canvas, state);
   document.querySelectorAll('[data-panel]').forEach((el) => {
     el.classList.toggle('selected', Number(el.dataset.panel) === selectedPanel);
   });
   zoomInput.value = String(Math.round((state.panels[selectedPanel].zoom || 1) * 100));
 }
 
-function resizeCanvas() {
-  const size = SIZES[state.size];
+function applySize() {
+  const size = POSTER_SIZES[state.size];
   canvas.width = size.w;
   canvas.height = size.h;
-  redraw();
+  repaint();
 }
 
-/** Loads an image from a URL, resolving to the image once it can be drawn. */
+/** Loads an image from a URL, resolving once it can be drawn. */
 export function loadImage(url) {
   return new Promise((resolve, reject) => {
     const img = new Image();
@@ -60,12 +61,12 @@ export function loadImage(url) {
 export function setPanelPhoto(i, img) {
   state.panels[i] = { photo: img, zoom: 1, ox: 0, oy: 0 };
   selectedPanel = i;
-  redraw();
+  repaint();
 }
 
-// --- Controls: layout, grade, size, lettering, effects ------------------------
+// --- Choice buttons: layout, grade, size -------------------------------------
 
-function buildButtons(containerId, entries, key) {
+function buildChoices(containerId, entries, key) {
   const box = document.getElementById(containerId);
   box.innerHTML = '';
   for (const [value, info] of Object.entries(entries)) {
@@ -76,8 +77,8 @@ function buildButtons(containerId, entries, key) {
     b.title = info.hint || info.label;
     b.addEventListener('click', () => {
       state[key] = value;
-      if (key === 'size') resizeCanvas();
-      else redraw();
+      if (key === 'size') applySize();
+      else repaint();
       box.querySelectorAll('.choice').forEach((el) => el.classList.remove('active'));
       b.classList.add('active');
     });
@@ -85,38 +86,37 @@ function buildButtons(containerId, entries, key) {
     box.appendChild(b);
   }
 }
-buildButtons('layouts', LAYOUTS, 'layout');
-buildButtons('grades', GRADES, 'grade');
-buildButtons('sizes', Object.fromEntries(
-  Object.entries(SIZES).map(([k, v]) => [k, { label: v.label }])),
-  'size',
-);
+buildChoices('layouts', PANEL_LAYOUTS, 'layout');
+buildChoices('grades', COLOUR_GRADES, 'grade');
+buildChoices('sizes', Object.fromEntries(
+  Object.entries(POSTER_SIZES).map(([k, v]) => [k, { label: v.label }]),
+), 'size');
 
-titleInput.addEventListener('input', () => { state.title = titleInput.value; redraw(); });
-subtitleInput.addEventListener('input', () => { state.subtitle = subtitleInput.value; redraw(); });
-document.getElementById('titleFont').addEventListener('change', (e) => { state.titleFont = e.target.value; redraw(); });
-document.getElementById('titlePos').addEventListener('change', (e) => { state.titlePos = e.target.value; redraw(); });
-document.getElementById('frame').addEventListener('change', (e) => { state.frame = e.target.checked; redraw(); });
-document.getElementById('grain').addEventListener('change', (e) => { state.grain = e.target.checked; redraw(); });
-document.getElementById('vignette').addEventListener('change', (e) => { state.vignette = e.target.checked; redraw(); });
+titleInput.addEventListener('input', () => { state.title = titleInput.value; repaint(); });
+subtitleInput.addEventListener('input', () => { state.subtitle = subtitleInput.value; repaint(); });
+document.getElementById('titleFont').addEventListener('change', (e) => { state.titleFont = e.target.value; repaint(); });
+document.getElementById('titlePos').addEventListener('change', (e) => { state.titlePos = e.target.value; repaint(); });
+document.getElementById('frame').addEventListener('change', (e) => { state.frame = e.target.checked; repaint(); });
+document.getElementById('grain').addEventListener('change', (e) => { state.grain = e.target.checked; repaint(); });
+document.getElementById('vignette').addEventListener('change', (e) => { state.vignette = e.target.checked; repaint(); });
 zoomInput.addEventListener('input', () => {
   state.panels[selectedPanel].zoom = Number(zoomInput.value) / 100;
-  redraw();
+  repaint();
 });
 
-// --- Photos: pick a panel, load a file, drag to reposition ---------------------
+// --- Photos: pick a panel, load a file, drag to reposition --------------------
 
 const panelList = document.getElementById('panels');
 function rebuildPanelList() {
   panelList.innerHTML = '';
-  const count = LAYOUTS[state.layout].panels;
+  const count = PANEL_LAYOUTS[state.layout].panels;
   for (let i = 0; i < count; i++) {
     const b = document.createElement('button');
     b.type = 'button';
     b.className = 'choice';
     b.dataset.panel = String(i);
     b.textContent = `Panel ${i + 1}`;
-    b.addEventListener('click', () => { selectedPanel = i; redraw(); });
+    b.addEventListener('click', () => { selectedPanel = i; repaint(); });
     panelList.appendChild(b);
   }
 }
@@ -133,9 +133,9 @@ document.getElementById('fillAll').addEventListener('click', async () => {
   const file = photoInput.files[0];
   if (!file) { status.textContent = 'Choose a photo first, then Fill all panels.'; return; }
   const img = await loadImage(URL.createObjectURL(file));
-  const count = LAYOUTS[state.layout].panels;
+  const count = PANEL_LAYOUTS[state.layout].panels;
   for (let i = 0; i < count; i++) state.panels[i] = { photo: img, zoom: 1, ox: 0, oy: 0 };
-  redraw();
+  repaint();
   status.textContent = `One photo fills all ${count} panels.`;
 });
 
@@ -155,7 +155,7 @@ canvas.addEventListener('pointerdown', (e) => {
       selectedPanel = i;
       dragging = { x: p.x, y: p.y, ox: state.panels[i].ox, oy: state.panels[i].oy, w: r.w, h: r.h };
       canvas.setPointerCapture(e.pointerId);
-      redraw();
+      repaint();
       return;
     }
   }
@@ -166,37 +166,34 @@ canvas.addEventListener('pointermove', (e) => {
   const panel = state.panels[selectedPanel];
   panel.ox = dragging.ox + (p.x - dragging.x) / dragging.w;
   panel.oy = dragging.oy + (p.y - dragging.y) / dragging.h;
-  redraw();
+  repaint();
 });
 canvas.addEventListener('pointerup', () => { dragging = null; });
 
-// --- Export -------------------------------------------------------------------
+// --- Export ------------------------------------------------------------------
 
-document.getElementById('export').addEventListener('click', () => {
-  const size = SIZES[state.size];
-  const out = renderExport(state, state.size);
+function downloadCanvas(out, size) {
   out.toBlob((blob) => {
     const a = document.createElement('a');
     a.href = URL.createObjectURL(blob);
     a.download = `neon-coast-cover-${size.w}x${size.h}.png`;
     a.click();
-    status.textContent = `Saved neon-coast-cover-${size.w}x${size.h}.png`;
   }, 'image/png');
+}
+
+document.getElementById('export').addEventListener('click', () => {
+  const size = POSTER_SIZES[state.size];
+  downloadCanvas(exportPoster(state, state.size), size);
+  status.textContent = `Saved neon-coast-cover-${size.w}x${size.h}.png`;
 });
 document.getElementById('exportAll').addEventListener('click', () => {
-  for (const key of Object.keys(SIZES)) {
-    const size = SIZES[key];
-    renderExport(state, key).toBlob((blob) => {
-      const a = document.createElement('a');
-      a.href = URL.createObjectURL(blob);
-      a.download = `neon-coast-cover-${size.w}x${size.h}.png`;
-      a.click();
-    }, 'image/png');
+  for (const key of Object.keys(POSTER_SIZES)) {
+    downloadCanvas(exportPoster(state, key), POSTER_SIZES[key]);
   }
   status.textContent = 'Saved all three sizes.';
 });
 
-// --- Boot: fonts first (canvas text needs them), then the samples --------------
+// --- Boot: fonts first (canvas text needs them), then the samples -------------
 
 const shot = new URLSearchParams(location.search).get('shot');
 async function boot() {
@@ -209,7 +206,7 @@ async function boot() {
     ]);
   } catch { /* fall back to system fonts if a font file cannot load */ }
   if (shot) {
-    await runShot(shot, new URLSearchParams(location.search), state, setPanelPhoto, resizeCanvas, redraw);
+    await runShot(shot, new URLSearchParams(location.search), state, setPanelPhoto, applySize, repaint);
   } else {
     // A sample photo in every panel, so the cover is alive on first open.
     const boulevard = await loadImage('samples/boulevard.jpg');
@@ -219,8 +216,8 @@ async function boot() {
     setPanelPhoto(2, boulevard);
     setPanelPhoto(3, pier);
     selectedPanel = 0;
-    resizeCanvas();
+    applySize();
   }
-  redraw();
+  repaint();
 }
 boot();

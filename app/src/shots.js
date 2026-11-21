@@ -1,16 +1,16 @@
-// Fixed scenes for screenshots: ?shot=editor shows the page with sample photos loaded;
-// ?shot=cover shows one exported cover alone, drawn by the app at its export size.
-// The query picks the scene: layout, grade, size, photo, caption, subtitle.
-// window.__shotReady is set once the scene is painted.
-import { drawCover, LAYOUTS, GRADES, SIZES } from './cover.js';
+// Fixed scenes for screenshots: ?shot=editor shows the page with sample photos
+// loaded; ?shot=cover shows one exported cover alone, drawn by the app at its
+// export size. The query picks the scene: layout, grade, size, photo, caption,
+// subtitle. window.__shotReady is set once the scene is painted.
+import { PANEL_LAYOUTS, COLOUR_GRADES, POSTER_SIZES } from './cover.js';
 
-export async function runShot(shot, query, state, setPanelPhoto, resizeCanvas, redraw) {
+export async function runShot(shot, query, state, setPanelPhoto, applySize, repaint) {
   const layout = query.get('layout') || 'hero';
   const grade = query.get('grade') || 'sunset';
   const sizeKey = query.get('size') || 'wide';
-  if (LAYOUTS[layout]) state.layout = layout;
-  if (GRADES[grade]) state.grade = grade;
-  if (SIZES[sizeKey]) state.size = sizeKey;
+  if (PANEL_LAYOUTS[layout]) state.layout = layout;
+  if (COLOUR_GRADES[grade]) state.grade = grade;
+  if (POSTER_SIZES[sizeKey]) state.size = sizeKey;
   state.title = query.get('caption') || 'Neon Coast';
   state.subtitle = query.get('subtitle') || 'sunset run';
   if (query.get('font')) state.titleFont = query.get('font');
@@ -27,12 +27,12 @@ export async function runShot(shot, query, state, setPanelPhoto, resizeCanvas, r
   const boulevard = await load('boulevard');
   const pier = await load('pier');
   const photos = [boulevard, pier, boulevard, pier, boulevard, pier, boulevard, pier, boulevard];
-  const count = LAYOUTS[state.layout].panels;
+  const count = PANEL_LAYOUTS[state.layout].panels;
   for (let i = 0; i < count; i++) setPanelPhoto(i, photos[i]);
 
   if (shot === 'cover') document.body.classList.add('shot-cover');
-  resizeCanvas();
-  redraw();
+  applySize();
+  repaint();
   // Two frames so the canvas paint lands before the screenshot.
   await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
   window.__shotReady = true;
