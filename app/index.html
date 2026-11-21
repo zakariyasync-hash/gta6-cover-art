@@ -1,0 +1,81 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Neon Coast Cover Studio — GTA-style cover art maker</title>
+<link rel="stylesheet" href="./style.css">
+</head>
+<body>
+<main class="app">
+  <section class="controls">
+    <h1>Neon Coast <span>Cover Studio</span></h1>
+    <p class="tag">Turn any photo and caption into GTA-style cover art. Your photos never leave this machine.</p>
+
+    <div class="group">
+      <h2>1 · Layout</h2>
+      <div id="layouts" class="choices"></div>
+    </div>
+
+    <div class="group">
+      <h2>2 · Grade</h2>
+      <div id="grades" class="choices"></div>
+    </div>
+
+    <div class="group">
+      <h2>3 · Size</h2>
+      <div id="sizes" class="choices"></div>
+    </div>
+
+    <div class="group">
+      <h2>4 · Photos</h2>
+      <div id="panels" class="choices"></div>
+      <label>Photo for the selected panel
+        <input id="photo" type="file" accept="image/*">
+      </label>
+      <button id="fillAll" type="button" class="secondary">Fill all panels with this photo</button>
+      <label>Zoom the selected panel
+        <input id="zoom" type="range" min="100" max="300" value="100">
+      </label>
+      <p class="hint">Tip: drag a panel on the cover to move its photo.</p>
+    </div>
+
+    <div class="group">
+      <h2>5 · Lettering</h2>
+      <label>Title <input id="title" type="text" maxlength="30" value="Neon Coast"></label>
+      <label>Subtitle <input id="subtitle" type="text" maxlength="40" value="sunset run"></label>
+      <div class="row">
+        <label>Title font
+          <select id="titleFont">
+            <option value="anton" selected>Anton — bold poster</option>
+            <option value="bebas">Bebas Neue — tall caps</option>
+          </select>
+        </label>
+        <label>Title position
+          <select id="titlePos">
+            <option value="bottom" selected>Bottom</option>
+            <option value="top">Top</option>
+          </select>
+        </label>
+      </div>
+    </div>
+
+    <div class="group">
+      <h2>6 · Finish</h2>
+      <label class="check"><input id="frame" type="checkbox" checked> White poster frame</label>
+      <label class="check"><input id="grain" type="checkbox" checked> Film grain</label>
+      <label class="check"><input id="vignette" type="checkbox" checked> Vignette</label>
+    </div>
+
+    <button id="export" type="button" class="primary">Export PNG</button>
+    <button id="exportAll" type="button" class="secondary">Export all three sizes</button>
+    <p id="status" role="status"></p>
+  </section>
+  <section class="stage">
+    <canvas id="cover" width="1920" height="1080" aria-label="The cover, live preview"></canvas>
+    <p class="stage-hint">Live preview — what you see is the PNG you export.</p>
+  </section>
+</main>
+<script type="module" src="./src/main.js"></script>
+</body>
+</html>
